@@ -46,13 +46,13 @@ class RProgress {
 	    bool clear = true,
 	    double show_after = 0.2) :
 
-    format(format), total(total), width(width), complete_char(complete_char),
-    incomplete_char(incomplete_char), clear(clear), show_after(show_after),
-    first(true), current(0), last_draw(""), start(0), toupdate(false),
-    complete(false) {
+    first(true), format(format), total(total), current(0), width(width),
+    complete_char(complete_char), incomplete_char(incomplete_char),
+    clear(clear), show_after(show_after), last_draw(""), start(0),
+    toupdate(false), complete(false) {
 
     supported = is_supported();
-    stderr = default_stderr();
+    use_stderr = default_stderr();
   }
 
   ~RProgress() { }
@@ -101,7 +101,7 @@ class RProgress {
   double total;			// Total number of ticks
   double current;		// Current number of ticks
   int width;			// Width of progress bar
-  bool stderr;			// Whether to print to stderr
+  bool use_stderr;		// Whether to print to stderr
   char complete_char;		// Character for completed ticks
   char incomplete_char;		// Character for incomplete ticks
   bool clear;			// Should we clear the line at the end?
@@ -132,7 +132,7 @@ class RProgress {
     replace_all(str, ":elapsed", elapsed);
 
     // eta
-    double percent = std::round(ratio_now * 100);
+    double percent = round(ratio_now * 100);
     double eta_secs = percent == 100 ? 0 :
       elapsed_secs * (total / current - 1.0);
     std::string eta = std::isinf(eta_secs) ? "?s" : vague_dt(eta_secs);
@@ -140,7 +140,7 @@ class RProgress {
 
     // rate
     double rate_num = current / elapsed_secs;
-    buffer << pretty_bytes(std::round(rate_num)) << "/s";
+    buffer << pretty_bytes(round(rate_num)) << "/s";
     replace_all(str, ":rate", buffer.str());
     buffer.str(""); buffer.clear();
 
@@ -173,9 +173,9 @@ class RProgress {
     replace_all(str, ":bar", bar);
 
     if (last_draw != str) {
-      if (last_draw.length() > str.length()) { clear_line(stderr, width); }
-      cursor_to_start(stderr);
-      if (stderr) {
+      if (last_draw.length() > str.length()) { clear_line(use_stderr, width); }
+      cursor_to_start(use_stderr);
+      if (use_stderr) {
 	REprintf(str.c_str());
       } else {
 	Rprintf(str.c_str());
@@ -187,10 +187,10 @@ class RProgress {
   void terminate() {
     if (! supported) return;
     if (clear) {
-      clear_line(stderr, width);
-      cursor_to_start(stderr);
+      clear_line(use_stderr, width);
+      cursor_to_start(use_stderr);
     } else {
-      if (stderr) {
+      if (use_stderr) {
 	REprintf("\n");
       } else {
 	Rprintf("\n");
@@ -205,23 +205,23 @@ class RProgress {
     return ratio;
   }
 
-  void clear_line(bool stderr, int width) {
+  void clear_line(bool use_stderr, int width) {
 
     char spaces[width + 2];
     for (int i = 1; i <= width; i++) spaces[i] = ' ';
     spaces[0] = '\r';
     spaces[width + 1] = '\0';
 
-    if (stderr) {
+    if (use_stderr) {
       REprintf(spaces);
     } else {
       Rprintf(spaces);
     }
   }
 
-  void cursor_to_start(bool stderr) {
+  void cursor_to_start(bool use_stderr) {
 
-    if (stderr) {
+    if (use_stderr) {
       REprintf("\r");
     } else {
       Rprintf("\r");
@@ -318,17 +318,17 @@ public:
     buffer << std::setw(2);
 
     if (seconds < 50) {
-      buffer << std::round(seconds) << "s";
+      buffer << round(seconds) << "s";
     } else if (minutes < 50) {
-      buffer << std::round(minutes) << "m";
+      buffer << round(minutes) << "m";
     } else if (hours < 18) {
-      buffer << std::round(hours) << "h";
+      buffer << round(hours) << "h";
     } else if (days < 30) {
-      buffer << std::round(days) << "d";
+      buffer << round(days) << "d";
     } else if (days < 335) {
-      buffer << std::round(days/30) << "M";
+      buffer << round(days/30) << "M";
     } else {
-      buffer << std::round(years) << "y";
+      buffer << round(years) << "y";
     }
 
     return buffer.str();
@@ -344,7 +344,7 @@ public:
     double idx = std::floor(std::log(bytes) / std::log(1000.0));
     if (idx >= num_units) { idx = num_units - 1; }
 
-    double res = std::round(bytes / std::pow(1000.0, idx) * 100.0) / 100.0;
+    double res = round(bytes / std::pow(1000.0, idx) * 100.0) / 100.0;
     std::stringstream buffer;
 
     buffer.precision(2);
