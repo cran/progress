@@ -1,9 +1,16 @@
 
-# progress
+<h1 align="center">
+    <br>
+    <br>
+    <img width="400" src="./inst/logo.png" alt="progress">
+    <br>
+    <br>
+    <br>
+</h1>
 
 [![Linux Build Status](https://travis-ci.org/gaborcsardi/progress.svg?branch=master)](https://travis-ci.org/gaborcsardi/progress)
 [![Windows Build status](https://ci.appveyor.com/api/projects/status/github/gaborcsardi/progress?svg=true)](https://ci.appveyor.com/project/gaborcsardi/progress)
-[![](http://www.r-pkg.org/badges/version/progress)](http://cran.rstudio.com/web/packages/progress/index.html)
+[![](https://www.r-pkg.org/badges/version/progress)](https://r-pkg.org/pkg/progress)
 
 > Progress bar in your R terminal
 
@@ -21,6 +28,7 @@ devtools::install_github("gaborcsardi/progress")
 Use the `progress_bar` R6 class:
 
 ```r
+library(progress)
 pb <- progress_bar$new(total = 100)
 for (i in 1:100) {
   pb$tick()
@@ -142,6 +150,36 @@ f()
 ```
 
 See the manual for details and other options.
+
+## Creating a plyr compatible progress bar
+
+It is easy to create progress bars for
+[plyr](https://github.com/hadley/plyr):
+
+```r
+progress_progress <- function(...) {
+  pb <- NULL
+  list(
+    init = function(x, ...) {
+      pb <<- progress_bar$new(total = x, ...)
+    },
+	step = function() {
+      pb$tick()
+    },
+	term = function() NULL
+  )
+}
+```
+
+You can try it with
+
+```r
+plyr::l_ply(
+  1:100,
+  .fun = function(...) Sys.sleep(0.01),
+  .progress = 'progress'
+)
+```
 
 ## C++ API
 

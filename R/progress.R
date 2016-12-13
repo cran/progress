@@ -63,6 +63,8 @@
 #'   \item{:bytes}{Shows :current, formatted as bytes. Useful
 #'      for downloads or file reads if you don't know the size of the
 #'      file in advance. See example below.}
+#'   \item{:spin}{Shows a spinner that updates even when progress is
+#'      advanced by zero.}
 #' }
 #'
 #' Custom tokens are also supported, and you need to pass their
@@ -73,6 +75,12 @@
 #'
 #' @export
 #' @examples
+#'
+#' ## We don't run the examples on CRAN, because they takes >10s
+#' ## altogether. Unfortunately it is hard to create a set of
+#' ## meaningful progress bar examples that also run quickly.
+#' \dontrun{
+#' 
 #' ## Basic
 #' pb <- progress_bar$new(total = 100)
 #' for (i in 1:100) {
@@ -96,6 +104,15 @@
 #' for (i in 1:100) {
 #'   pb$tick()
 #'   Sys.sleep(1 / 100)
+#' }
+#'
+#' ## Spinner
+#' pb <- progress_bar$new(
+#'   format = "(:spin) [:bar] :percent",
+#'   total = 30, clear = FALSE, width = 60)
+#' for (i in 1:30) {
+#'   pb$tick()
+#'   Sys.sleep(3 / 100)
 #' }
 #'
 #' ## Custom tokens
@@ -128,6 +145,8 @@
 #' }
 #' f()
 #'
+#' }
+#'
 #' @name progress_bar
 NULL
 
@@ -144,7 +163,8 @@ progress_bar <- R6Class("progress_bar",
     },
     tick = function(len = 1, tokens = list()) {
       pb_tick(self, private, len, tokens) },
-    update = function(ratio, tokens) { pb_update(self, private, ratio, tokens) }
+    update = function(ratio, tokens = list()) { 
+      pb_update(self, private, ratio, tokens) }
   ),
 
   private = list(
@@ -173,9 +193,11 @@ progress_bar <- R6Class("progress_bar",
     toupdate = FALSE,
     complete = FALSE,
 
+    spin = NULL,
+
     has_token = c(current = FALSE, total = FALSE, elapsed = FALSE,
       eta = FALSE, percent = FALSE, rate = FALSE, bytes = FALSE,
-      bar = FALSE)
+      bar = FALSE, spin = FALSE)
   )
 )
 
@@ -206,6 +228,7 @@ pb_init <- function(self, private, format, total, width, stream,
   private$callback <- callback
   private$clear <- clear
   private$show_after <- as.difftime(show_after, units = "secs")
+  private$spin <- spin_symbols()
 
   private$has_token <- pb_update_has_token(private$has_token, format)
 
@@ -225,7 +248,10 @@ pb_tick <- function(self, private, len, tokens) {
   assert_scalar(len)
   assert_named_or_empty_list(tokens)
 
-  if (private$first) private$start <- Sys.time()
+  if (private$first) {
+    private$first <- FALSE
+    private$start <- Sys.time()
+  }
 
   private$current <- private$current + len
 
@@ -237,16 +263,12 @@ pb_tick <- function(self, private, len, tokens) {
 
   if (private$current >= private$total) private$complete <- TRUE
 
-  if (private$first || private$toupdate || private$complete) {
-    private$render(tokens)
-  }
+  if (private$toupdate) private$render(tokens)
 
   if (private$complete) {
     private$terminate()
     private$callback()
   }
-
-  private$first <- FALSE
 
   self
 }
@@ -318,6 +340,17 @@ pb_render <- function(self, private, tokens) {
     str <- sub(str, pattern = ":bytes", replacement = bytes)
   }
 
+  if (private$has_token["spin"]) {
+    ## NOTE: fixed = TRUE is needed here or "\\" causes trouble with
+    ## the replacement (I think it's interpreted as an invalid
+    ## backreference).
+    str <- sub(str, pattern = ":spin", replacement = private$spin(), fixed = TRUE)
+  }
+
+  for (t in names(tokens)) {
+    str <- gsub(paste0(":", t), tokens[[t]], str, fixed = TRUE)
+  }
+
   if (private$has_token["bar"]) {
     bar_width <- nchar(sub(str, pattern = ":bar", replacement = ""))
     bar_width <- private$width - bar_width
@@ -331,10 +364,6 @@ pb_render <- function(self, private, tokens) {
                         collapse = private$chars$incomplete)
 
     str <- sub(":bar", paste0(complete, incomplete), str)
-  }
-
-  for (t in names(tokens)) {
-    str <- gsub(paste0(":", t), tokens[[t]], str, fixed = TRUE)
   }
 
   if (private$last_draw != str) {
@@ -354,15 +383,24 @@ pb_render <- function(self, private, tokens) {
 pb_update <- function(self, private, ratio, tokens) {
   assert_ratio(ratio)
   goal <- floor(ratio * private$total)
-  private$tick(goal - private$current, tokens)
+  self$tick(goal - private$current, tokens)
 }
 
 pb_terminate <- function(self, private) {
-  if (!private$supported) return(invisible())
+  if (!private$supported || !private$toupdate) return(invisible())
   if (private$clear) {
     clear_line(private$stream, private$width)
     cursor_to_start(private$stream)
   } else {
     cat("\n", file = private$stream)
+  }
+}
+
+spin_symbols <- function() {
+  sym <- c("-", "\\", "|", "/")
+  i <- 0L
+  n <- length(sym)
+  function() {
+    sym[[i <<- if (i >= n) 1L else i + 1L]]
   }
 }

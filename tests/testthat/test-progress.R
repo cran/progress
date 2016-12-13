@@ -25,6 +25,31 @@ test_that("Vanilla progress bar works", {
 
 })
 
+test_that("Update method works", {
+
+  out <- get_output({
+    pb <- progress_bar$new(stream = stdout(), force = TRUE,
+                           show_after = 0, width = 20)
+    updates = c(20, 40, 20, 80, 100) / 100
+    for (i in 1:5) {
+      pb$update(updates[i])
+    }
+  })
+
+  sout <- win_newline(
+    "\r[===----------]  20%",
+    "\r[=====--------]  40%",
+    "\r[===----------]  20%",
+    "\r[==========---]  80%",
+    "\r[=============] 100%",
+    "\r                    ",
+    "\r"
+  )
+
+  expect_equal(out, sout)
+
+})
+
 test_that("Calling tick(0)", {
 
   out <- get_output({
@@ -103,6 +128,8 @@ test_that("No :bar item, :current and :total tokens", {
 ## should work in general
 
 test_that(":eta and :elapsed tokens", {
+
+  skip_on_cran()
 
   out <- get_output({
     pb <- progress_bar$new(stream = stdout(), force = TRUE,
@@ -222,6 +249,8 @@ test_that("clearing and not clearing", {
 
 test_that("show_after argument", {
 
+  skip_on_cran()
+
   out <- get_output({
     pb <- progress_bar$new(stream = stdout(), force = TRUE,
                            show_after = .1, width = 20, clear = TRUE)
@@ -234,7 +263,6 @@ test_that("show_after argument", {
   })
 
   sout <- win_newline(
-    "\r[-------------]   0%",
     "\r[==========---]  75%",
     "\r[=============] 100%",
     "\r                    ",
@@ -259,10 +287,31 @@ test_that("custom tokens", {
   })
 
   sout <- win_newline(
-    "\rfoo    [==-----]  25%",
-    "\rfoo    [====---]  50%",
-    "\rfoobar [=====--]  75%",
-    "\rfoobar [=======] 100%",
+    "\rfoo    [==----]  25%",
+    "\rfoo    [===---]  50%",
+    "\rfoobar [====--]  75%",
+    "\rfoobar [======] 100%",
+    "\n"
+  )
+
+  expect_equal(out, sout)
+})
+
+test_that("bar adepts to width of custom tokens", {
+  out <- get_output({
+    pb <- progress_bar$new(stream = stdout(), force = TRUE,
+                           show_after = 0, width = 20,
+                           format = ":what [:bar] :percent",
+                           clear = FALSE, total = 200)
+    pb$tick(50, tokens = list(what = "text"))
+    pb$tick(50, tokens = list(what = "long text"))
+    pb$tick(100, tokens = list(what = "text"))
+  })
+
+  sout <- win_newline(
+    "\rtext [==------]  25%",
+    "\rlong text [==-]  50%",
+    "\rtext [========] 100%",
     "\n"
   )
 
@@ -295,6 +344,8 @@ test_that("custom streams", {
 
 test_that(":rate and :bytes tokens", {
 
+  skip_on_cran()
+
   out <- get_output({
     pb <- progress_bar$new(stream = stdout(), force = TRUE,
                            show_after = 0, width = 20, total = 4 * 1024,
@@ -322,4 +373,17 @@ test_that(":rate and :bytes tokens", {
   )
 
   expect_match(out, soutm)
+})
+
+test_that("very quick loops, only the nothing is shown", {
+
+  out <- get_output({
+    pb <- progress_bar$new(total = 100, stream = stdout(), force = TRUE,
+                           width = 20)
+    for (i in 1:100) pb$tick()
+  })
+
+  sout <- win_newline("")
+  expect_equal(out, sout)
+
 })
