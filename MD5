@@ -1,9 +1,9 @@
-97d01f7445091a46f8f20757d49aa2ff *DESCRIPTION
+22a1bb1188d47dcba16533993a530159 *DESCRIPTION
 e4c81207cdbd596c9e35a231e630e872 *LICENSE
 8c924c80c47fd4b443134b51ba5ffcd9 *NAMESPACE
 b814ea50b680ffb9db27ad4baaf7b94f *R/progress.R
 35e20d402c9bd0054a782d01fc4b61dd *R/utils.R
-2cddaec7a439a6211a6034d0b1a00c3c *inst/NEWS.md
+0c9e74abc8221a0c1c9b5b5d6a6a4dae *inst/NEWS.md
 b8e0ee67cec086fe5622fc959d3c8e97 *inst/README.metacran
 6ddb5651141969fda582967e204cd0e2 *inst/include/RProgress.h
 76f1f04c00cae388f24f4ff00636c2ae *inst/logo.png
@@ -17,8 +17,7 @@ b5981f6a5d933fb66575a38a8a15d187 *inst/progresstest/DESCRIPTION
 7d4c5db3fbe2c2b7c93be3062b280604 *inst/progresstest/src/RcppExports.cpp
 8a6f1090313e7c4b076ef60cd0838175 *inst/progresstest/src/test.cpp
 22fa2206d93e2b35d881c622a29a4751 *man/progress_bar.Rd
-48c21b8d832d1325816a2a7969e6f1dc *tests/testthat.R
+95d3bb15732f376a121c2d619708824e *tests/testthat.R
 13dc299450724118ac82173b952468fd *tests/testthat/helper.R
 367aa8feade5b32c0307395662836aaf *tests/testthat/test-cpp.R
-3aa924f77aafca3db3163c4bd4e80ebf *tests/testthat/test-overhead.R
 62bfdd32271e3f6a629473f52d792de8 *tests/testthat/test-progress.R
