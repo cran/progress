@@ -7,36 +7,21 @@ test_that("C++ API works", {
 
   Sys.setenv("R_TESTS" = "")
 
-  ## Need to "link to" the current package
-  test_pkg_dir <- system.file("progresstest", package = "progress")
+  dir.create(lib <- tempfile())
+  on.exit(unlink(lib, recursive = TRUE), add = TRUE)
+  install.packages("progresstest_1.0.0.tar.gz", lib = lib, quiet = TRUE)
 
-  f <- file(tempfile(), open = "w")
-  sink(f)
-  sink(f, type = "message")
-  install.packages("Rcpp", repos = c(CRAN = "https://cran.rstudio.com"),
-                   quiet = TRUE)
-  sink(NULL, type = "message")
-  sink(NULL)
-  close(f)
-  unlink(f)
+  on.exit(unloadNamespace("progresstest"), add = TRUE)
+  withr::with_libpaths(lib, action = "prefix", {
+    withr::with_message_sink(
+      file.path(lib, basename(tempfile())),
+      expect_error(progresstest::my_test_progress(), NA)
+    )
+  })
 
-  ## OK, we could install it
-  try(silent = TRUE, unloadNamespace("progresstest"))
-  install.packages(test_pkg_dir, repos = NULL, type = "source",
-                   quiet = TRUE)
-
-  ## OK, we could load it
-  do.call("library", list("progresstest", character.only = TRUE))
-
-  f <- file(tempfile(), open = "w")
-  sink(f)
-  sink(f, type = "message")
-  my_test_progress()
-  sink(NULL, type = "message")
-  sink(NULL)
-  close(f)
-  unlink(f)
-
-  try(silent = TRUE, unloadNamespace("progresstest"))
-
+  withr::with_libpaths(lib, action = "prefix", {
+    withr::with_options(list(progress_enabled = FALSE),
+      expect_false(progresstest::my_is_option_enabled())
+    )
+  })
 })

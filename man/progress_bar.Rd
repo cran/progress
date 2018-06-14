@@ -19,16 +19,15 @@ A progress bar is an R6 object, that can be created with
     \code{"[:bar] :percent"}, which means that the progress
     bar is within brackets on the left, and the percentage
     is printed on the right.}
-  \item{total}{Total number of ticks to complete. Defaults to 100.}
+  \item{total}{Total number of ticks to complete. If it is unknown,
+     use \code{NA} here. Defaults to 100.}
   \item{width}{Width of the progress bar. Default is the current
     terminal width (see \code{options()} and \code{width}) minus two.}
-  \item{stream}{The output stream to put the progress bar on.
-    It defaults to \code{stderr()}, except in R Studio that has
-    a bug when printing on the standard error, so there we use
-    \code{stdout}. If the output stream is not a terminal and
-    we are not in R Studio, then no progress bar is printed.}
+  \item{stream}{This argument is deprecated, and \code{message()} is
+    used to print the progress bar.}
   \item{complete}{Completion character, defaults to \code{=}.}
   \item{incomplete}{Incomplete character, defaults to \code{-}.}
+  \item{current}{Current character, defaults to \code{>}.}
   \item{callback}{Callback function to call when the progress
     bar finishes. The progress bar object itself is passed to it
     as the single parameter.}
@@ -39,21 +38,25 @@ A progress bar is an R6 object, that can be created with
     it is probably not worth showing it at all. Defaults to two
     tenth of a second.}
   \item{force}{Whether to force showing the progress bar,
-    even if the given (or default) stream does not seem support it.}
+    even if the given (or default) stream does not seem to support it.}
 }
 }
 
 \section{Using the progress bar}{
 
-Two functions can update a progress bar. \code{progress_bar$tick()}
+Three functions can update a progress bar. \code{progress_bar$tick()}
 increases the number of ticks by one (or another specified value).
-\code{progress_bar$update()} sets a given ratio.
+\code{progress_bar$update()} sets a given ratio and
+\code{progress_bar$terminate()} removes the progress bar.
+\code{progress_bar$finished} can be used to see if the progress bar has
+finished.
 
-The progress bar is displayed after the first `tick` command.
-This might not be desirable for long computations, because
-nothing is shown before the first tick. It is good practice to
-call `tick(0)` at the beginning of the computation or download,
-which shows the progress bar immediately.
+Note that the progress bar is not shown immediately, but only after
+\code{show_after} seconds. (Set this to zero, and call `tick(0)` to
+force showing the progress bar.)
+
+\code{progress_bar$message()} prints a message above the progress bar.
+It fails if the progress bar has already finished.
 }
 
 \section{Tokens}{
@@ -65,9 +68,13 @@ progress bar.
   \item{:current}{Current tick number.}
   \item{:total}{Total ticks.}
   \item{:elapsed}{Elapsed time in seconds.}
+  \item{:elapsedfull}{Elapsed time in hh:mm:ss format.}
   \item{:eta}{Estimated completion time in seconds.}
   \item{:percent}{Completion percentage.}
   \item{:rate}{Download rate, bytes per second. See example below.}
+  \item{:tick_rate}{Similar to \code{:rate}, but we don't assume that
+     the units are bytes, we just print the raw number of ticks per
+     second.}
   \item{:bytes}{Shows :current, formatted as bytes. Useful
      for downloads or file reads if you don't know the size of the
      file in advance. See example below.}
@@ -79,6 +86,13 @@ Custom tokens are also supported, and you need to pass their
 values to \code{progress_bar$tick()} or \code{progress_bar$update()},
 in a named list. See example below.
 }
+
+\section{Options}{
+
+The `progress_enabled` option can be set to `FALSE` to turn off the
+progress bar. This works for the C++ progress bar as well.
+}
+
 \examples{
 
 ## We don't run the examples on CRAN, because they takes >10s
@@ -139,7 +153,7 @@ f()
 ## Download (or other) rates
 pb <- progress_bar$new(
   format = "  downloading foobar at :rate, got :bytes in :elapsed",
-  clear = FALSE, total = 1e7, width = 60)
+  clear = FALSE, total = NA, width = 60)
 f <- function() {
   for (i in 1:100) {
     pb$tick(sample(1:100 * 1000, 1))
@@ -150,7 +164,19 @@ f <- function() {
 }
 f()
 
+pb <- progress_bar$new(
+  format = "  got :current rows at :tick_rate/sec",
+  clear = FALSE, total = NA, width = 60)
+f <- function() {
+  for (i in 1:100) {
+    pb$tick(sample(1:100, 1))
+    Sys.sleep(2/100)
+  }
+  pb$terminate()
+  invisible()
 }
+f()
 
 }
 
+}

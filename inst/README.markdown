@@ -8,8 +8,8 @@
     <br>
 </h1>
 
-[![Linux Build Status](https://travis-ci.org/gaborcsardi/progress.svg?branch=master)](https://travis-ci.org/gaborcsardi/progress)
-[![Windows Build status](https://ci.appveyor.com/api/projects/status/github/gaborcsardi/progress?svg=true)](https://ci.appveyor.com/project/gaborcsardi/progress)
+[![Linux Build Status](https://travis-ci.org/r-lib/progress.svg?branch=master)](https://travis-ci.org/r-lib/progress)
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/github/r-lib/progress?svg=true)](https://ci.appveyor.com/project/gaborcsardi/progress)
 [![](https://www.r-pkg.org/badges/version/progress)](https://r-pkg.org/pkg/progress)
 
 > Progress bar in your R terminal
@@ -20,7 +20,7 @@ the https://github.com/tj/node-progress JavaScript project.
 ## Installation
 
 ```r
-devtools::install_github("gaborcsardi/progress")
+devtools::install_github("r-lib/progress")
 ```
 
 ## Usage
@@ -89,6 +89,20 @@ for (i in 1:100) {
 
 ```
   downloading [==========================------]  80% in  1s
+```
+
+```r
+pb <- progress_bar$new(
+  format = "  downloading [:bar] :elapsedfull",
+  total = 1000, clear = FALSE, width= 60)
+for (i in 1:1000) {
+  pb$tick()
+  Sys.sleep(1 / 100)
+}
+```
+
+```
+  downloading [=====================--------------] 00:00:08
 ```
 
 With custom tokens:
@@ -214,4 +228,5 @@ single progress bar you need to use either one exclusively.
 
 ## License
 
-MIT
+MIT @ [Gábor Csárdi](https://github.com/gaborcsardi),
+      [RStudio Inc](https://github.com/rstudio)

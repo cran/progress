@@ -1,11 +1,11 @@
 
-clear_line <- function(tty, width) {
+clear_line <- function(width) {
   str <- paste0(c("\r", rep(" ", width)), collapse = "")
-  cat(str, file = tty)
+  message(str, appendLF = FALSE)
 }
 
-cursor_to_start <- function(tty) {
-  cat("\r", file = tty)
+cursor_to_start <- function() {
+  message("\r", appendLF = FALSE)
 }
 
 is_stdout <- function(stream) {
@@ -20,11 +20,22 @@ is_r_studio <- function() {
   Sys.getenv("RSTUDIO") == 1
 }
 
+r_studio_stdx <- function(stream) {
+  r_studio_stdout(stream) || r_studio_stderr(stream)
+}
+
 r_studio_stdout <- function(stream) {
   interactive() &&
     is_r_studio() &&
     identical(stream, stdout()) &&
     is_stdout(stream)
+}
+
+r_studio_stderr <- function(stream) {
+  interactive() &&
+    is_r_studio() &&
+    identical(stream, stderr()) &&
+    is_stderr(stream)
 }
 
 is_r_app <- function() {
@@ -38,7 +49,12 @@ r_app_stdx <- function(stream) {
 }
 
 is_supported <- function(stream) {
-  isatty(stream) || r_studio_stdout(stream) || r_app_stdx(stream)
+  is_option_enabled() &&
+    (isatty(stream) || r_studio_stdx(stream) || r_app_stdx(stream))
+}
+
+is_option_enabled <- function() {
+  isTRUE(getOption("progress_enabled", TRUE))
 }
 
 default_stream <- function(stream) {
@@ -49,17 +65,21 @@ default_stream <- function(stream) {
   }
 }
 
+assert_character <- function(x) {
+  stopifnot(is.character(x),
+            length(x) > 0)
+}
 assert_character_scalar <- function(x) {
   stopifnot(is.character(x),
             length(x) == 1,
             !is.na(x))
 }
 
-assert_scalar <- function(x, finite = TRUE) {
+assert_scalar <- function(x, finite = TRUE, na = FALSE) {
   stopifnot(is.numeric(x),
             length(x) == 1,
-            !is.na(x),
-            !finite || is.finite(x))
+            na || !is.na(x),
+            na || !finite || is.finite(x))
 }
 
 assert_positive_scalar <- function(x, finite = TRUE) {
@@ -67,9 +87,9 @@ assert_positive_scalar <- function(x, finite = TRUE) {
   stopifnot(x > 0)
 }
 
-assert_nonnegative_scalar <- function(x, finite = TRUE) {
-  assert_scalar(x, finite = finite)
-  stopifnot(x >= 0)
+assert_nonnegative_scalar <- function(x, finite = TRUE, na = FALSE) {
+  assert_scalar(x, finite = finite, na = na)
+  stopifnot(na || x >= 0)
 }
 
 

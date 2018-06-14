@@ -15,16 +15,15 @@
 #'     \code{"[:bar] :percent"}, which means that the progress
 #'     bar is within brackets on the left, and the percentage
 #'     is printed on the right.}
-#'   \item{total}{Total number of ticks to complete. Defaults to 100.}
+#'   \item{total}{Total number of ticks to complete. If it is unknown,
+#'      use \code{NA} here. Defaults to 100.}
 #'   \item{width}{Width of the progress bar. Default is the current
 #'     terminal width (see \code{options()} and \code{width}) minus two.}
-#'   \item{stream}{The output stream to put the progress bar on.
-#'     It defaults to \code{stderr()}, except in R Studio that has
-#'     a bug when printing on the standard error, so there we use
-#'     \code{stdout}. If the output stream is not a terminal and
-#'     we are not in R Studio, then no progress bar is printed.}
+#'   \item{stream}{This argument is deprecated, and \code{message()} is
+#'     used to print the progress bar.}
 #'   \item{complete}{Completion character, defaults to \code{=}.}
 #'   \item{incomplete}{Incomplete character, defaults to \code{-}.}
+#'   \item{current}{Current character, defaults to \code{>}.}
 #'   \item{callback}{Callback function to call when the progress
 #'     bar finishes. The progress bar object itself is passed to it
 #'     as the single parameter.}
@@ -35,19 +34,23 @@
 #'     it is probably not worth showing it at all. Defaults to two
 #'     tenth of a second.}
 #'   \item{force}{Whether to force showing the progress bar,
-#'     even if the given (or default) stream does not seem support it.}
+#'     even if the given (or default) stream does not seem to support it.}
 #' }
 #'
 #' @section Using the progress bar:
-#' Two functions can update a progress bar. \code{progress_bar$tick()}
+#' Three functions can update a progress bar. \code{progress_bar$tick()}
 #' increases the number of ticks by one (or another specified value).
-#' \code{progress_bar$update()} sets a given ratio.
+#' \code{progress_bar$update()} sets a given ratio and
+#' \code{progress_bar$terminate()} removes the progress bar.
+#' \code{progress_bar$finished} can be used to see if the progress bar has
+#' finished.
 #'
-#' The progress bar is displayed after the first `tick` command.
-#' This might not be desirable for long computations, because
-#' nothing is shown before the first tick. It is good practice to
-#' call `tick(0)` at the beginning of the computation or download,
-#' which shows the progress bar immediately.
+#' Note that the progress bar is not shown immediately, but only after
+#' \code{show_after} seconds. (Set this to zero, and call `tick(0)` to
+#' force showing the progress bar.)
+#'
+#' \code{progress_bar$message()} prints a message above the progress bar.
+#' It fails if the progress bar has already finished.
 #'
 #' @section Tokens:
 #' They can be used in the \code{format} argument when creating the
@@ -57,9 +60,13 @@
 #'   \item{:current}{Current tick number.}
 #'   \item{:total}{Total ticks.}
 #'   \item{:elapsed}{Elapsed time in seconds.}
+#'   \item{:elapsedfull}{Elapsed time in hh:mm:ss format.}
 #'   \item{:eta}{Estimated completion time in seconds.}
 #'   \item{:percent}{Completion percentage.}
 #'   \item{:rate}{Download rate, bytes per second. See example below.}
+#'   \item{:tick_rate}{Similar to \code{:rate}, but we don't assume that
+#'      the units are bytes, we just print the raw number of ticks per
+#'      second.}
 #'   \item{:bytes}{Shows :current, formatted as bytes. Useful
 #'      for downloads or file reads if you don't know the size of the
 #'      file in advance. See example below.}
@@ -71,6 +78,10 @@
 #' values to \code{progress_bar$tick()} or \code{progress_bar$update()},
 #' in a named list. See example below.
 #'
+#' @section Options:
+#' The `progress_enabled` option can be set to `FALSE` to turn off the
+#' progress bar. This works for the C++ progress bar as well.
+#'
 #' @importFrom R6 R6Class
 #'
 #' @export
@@ -80,7 +91,7 @@
 #' ## altogether. Unfortunately it is hard to create a set of
 #' ## meaningful progress bar examples that also run quickly.
 #' \dontrun{
-#' 
+#'
 #' ## Basic
 #' pb <- progress_bar$new(total = 100)
 #' for (i in 1:100) {
@@ -134,13 +145,26 @@
 #' ## Download (or other) rates
 #' pb <- progress_bar$new(
 #'   format = "  downloading foobar at :rate, got :bytes in :elapsed",
-#'   clear = FALSE, total = 1e7, width = 60)
+#'   clear = FALSE, total = NA, width = 60)
 #' f <- function() {
 #'   for (i in 1:100) {
 #'     pb$tick(sample(1:100 * 1000, 1))
 #'     Sys.sleep(2/100)
 #'   }
 #'   pb$tick(1e7)
+#'   invisible()
+#' }
+#' f()
+#'
+#' pb <- progress_bar$new(
+#'   format = "  got :current rows at :tick_rate/sec",
+#'   clear = FALSE, total = NA, width = 60)
+#' f <- function() {
+#'   for (i in 1:100) {
+#'     pb$tick(sample(1:100, 1))
+#'     Sys.sleep(2/100)
+#'   }
+#'   pb$terminate()
 #'   invisible()
 #' }
 #' f()
@@ -156,21 +180,24 @@ progress_bar <- R6Class("progress_bar",
 
     initialize = function(format = "[:bar] :percent", total = 100,
       width = getOption("width") - 2, stream = NULL, complete = "=",
-      incomplete = "-", callback = function(self) {}, clear = TRUE,
-      show_after = 0.2, force = FALSE) {
+      incomplete = "-", current = ">", callback = function(self) {},
+      clear = TRUE, show_after = 0.2, force = FALSE) {
         pb_init(self, private, format, total, width, stream, complete,
-          incomplete, callback, clear, show_after, force)
+          incomplete, current, callback, clear, show_after, force)
     },
     tick = function(len = 1, tokens = list()) {
       pb_tick(self, private, len, tokens) },
-    update = function(ratio, tokens = list()) { 
-      pb_update(self, private, ratio, tokens) }
+    update = function(ratio, tokens = list()) {
+      pb_update(self, private, ratio, tokens) },
+    message = function(msg, set_width = TRUE) {
+      pb_message(self, private, msg, set_width) },
+    terminate = function() { pb_terminate(self, private) },
+    finished = FALSE
   ),
 
   private = list(
 
     render = function(tokens) { pb_render(self, private, tokens) },
-    terminate = function() { pb_terminate(self, private) },
     ratio = function() { pb_ratio(self, private) },
 
     first = TRUE,
@@ -179,10 +206,10 @@ progress_bar <- R6Class("progress_bar",
     total = NULL,
     current = 0,
     width = NULL,
-    stream = NULL,
     chars = list(
       complete = "=",
-      incomplete = "-"
+      incomplete = "-",
+      current = ">"
     ),
     callback = NULL,
     clear = NULL,
@@ -195,36 +222,34 @@ progress_bar <- R6Class("progress_bar",
 
     spin = NULL,
 
-    has_token = c(current = FALSE, total = FALSE, elapsed = FALSE,
-      eta = FALSE, percent = FALSE, rate = FALSE, bytes = FALSE,
-      bar = FALSE, spin = FALSE)
+    has_token = c(current = FALSE, total = FALSE, elapsedfull = FALSE,
+      elapsed = FALSE, eta = FALSE, percent = FALSE, rate = FALSE,
+      bytes = FALSE, bar = FALSE, spin = FALSE, tick_rate = FALSE)
   )
 )
 
 pb_init <- function(self, private, format, total, width, stream,
-                    complete, incomplete, callback, clear, show_after,
-                    force) {
-
-  stream <- default_stream(stream)
+                    complete, incomplete, current, callback, clear,
+                    show_after, force) {
 
   assert_character_scalar(format)
-  assert_positive_scalar(total)
+  assert_nonnegative_scalar(total <- as.numeric(total), na = TRUE)
   assert_nonzero_count(width)
-  assert_connection(stream)
   assert_single_char(complete)
   assert_single_char(incomplete)
+  assert_single_char(current)
   assert_function(callback)
   assert_flag(clear)
   assert_nonnegative_scalar(show_after)
 
   private$first <- TRUE
-  private$supported <- force || is_supported(stream)
+  private$supported <- force || is_supported(stderr())
   private$format <- format
   private$total <- total
   private$width <- width
-  private$stream <- stream
   private$chars$complete <- complete
   private$chars$incomplete <- incomplete
+  private$chars$current <- current
   private$callback <- callback
   private$clear <- clear
   private$show_after <- as.difftime(show_after, units = "secs")
@@ -247,6 +272,7 @@ pb_tick <- function(self, private, len, tokens) {
 
   assert_scalar(len)
   assert_named_or_empty_list(tokens)
+  stopifnot(!self$finished)
 
   if (private$first) {
     private$first <- FALSE
@@ -261,13 +287,15 @@ pb_tick <- function(self, private, len, tokens) {
     }
   }
 
-  if (private$current >= private$total) private$complete <- TRUE
+  if (!is.na(private$total) && private$current >= private$total) {
+    private$complete <- TRUE
+  }
 
   if (private$toupdate) private$render(tokens)
 
   if (private$complete) {
-    private$terminate()
-    private$callback()
+    self$terminate()
+    private$callback(self)
   }
 
   self
@@ -283,6 +311,9 @@ pb_ratio <- function(self, private) {
   ratio
 }
 
+#' @importFrom hms as.hms
+#' @importFrom crayon col_nchar col_substr
+
 pb_render <- function(self, private, tokens) {
 
   if (! private$supported) return(invisible())
@@ -295,6 +326,13 @@ pb_render <- function(self, private, tokens) {
                  paste0(format(round(percent), width = 3), "%"))
   }
 
+  if (private$has_token["elapsedfull"]) {
+    elapsed <- Sys.time() - private$start
+    units(elapsed) <- "secs"
+    elapsedfull <- format(as.hms(as.integer(elapsed)))
+    str <- sub(str, pattern = ":elapsedfull", replacement = elapsedfull)
+  }
+
   if (private$has_token["elapsed"]) {
     elapsed_secs <- Sys.time() - private$start
     elapsed <- vague_dt(elapsed_secs, format = "terse")
@@ -302,18 +340,22 @@ pb_render <- function(self, private, tokens) {
   }
 
   if (private$has_token["eta"]) {
-    percent <- private$ratio() * 100
-    elapsed_secs <- Sys.time() - private$start
-    eta_secs <- if (percent == 100) {
-      0
+    if (is.na(private$total)) {
+      eta <- "?"
     } else {
-      elapsed_secs * (private$total / private$current - 1.0)
-    }
-    eta <- as.difftime(eta_secs, units = "secs")
-    if (is.nan(eta) || eta == Inf) {
-      eta <- " ?s"
-    } else {
-      eta <- vague_dt(eta, format = "terse")
+      percent <- private$ratio() * 100
+      elapsed_secs <- Sys.time() - private$start
+      eta_secs <- if (percent == 100) {
+        0
+      } else {
+        elapsed_secs * (private$total / private$current - 1.0)
+      }
+      eta <- as.difftime(eta_secs, units = "secs")
+      if (is.nan(eta) || eta == Inf) {
+        eta <- " ?s"
+      } else {
+        eta <- vague_dt(eta, format = "terse")
+      }
     }
     str <- sub(str, pattern = ":eta", replacement = eta)
   }
@@ -324,6 +366,14 @@ pb_render <- function(self, private, tokens) {
     if (is.nan(rate)) rate <- 0
     rate <- paste0(pretty_bytes(round(rate)), "/s")
     str <- sub(str, pattern = ":rate", replacement = rate)
+  }
+
+  if (private$has_token["tick_rate"]) {
+    elapsed_secs <- Sys.time() - private$start
+    tick_rate <- private$current / as.double(elapsed_secs, units = "secs")
+    if (is.nan(tick_rate)) tick_rate <- 0
+    tick_rate <- format(tick_rate, digits = 2)
+    str <- sub(str, pattern = ":tick_rate", replacement = tick_rate)
   }
 
   if (private$has_token["current"]) {
@@ -348,30 +398,41 @@ pb_render <- function(self, private, tokens) {
   }
 
   for (t in names(tokens)) {
-    str <- gsub(paste0(":", t), tokens[[t]], str, fixed = TRUE)
+    txt <- tryCatch(as.character(tokens[[t]])[[1]], error = function(e) "???")
+    str <- gsub(paste0(":", t), txt, str, fixed = TRUE)
   }
 
   if (private$has_token["bar"]) {
-    bar_width <- nchar(sub(str, pattern = ":bar", replacement = ""))
+    bar_width <- col_nchar(sub(str, pattern = ":bar", replacement = ""))
     bar_width <- private$width - bar_width
     bar_width <- max(0, bar_width)
 
     ratio <- private$ratio()
     complete_len <- round(bar_width * ratio)
-    complete <- paste(rep("", complete_len + 1),
+    complete <- paste(rep("", complete_len),
                       collapse = private$chars$complete)
+    current <- if (private$complete) {
+      private$chars$complete
+    } else if (complete_len >= 1) {
+      private$chars$current
+    }
     incomplete <- paste(rep("", bar_width - complete_len + 1),
                         collapse = private$chars$incomplete)
 
-    str <- sub(":bar", paste0(complete, incomplete), str)
+    str <- sub(
+      ":bar", paste0(complete, current, incomplete), str)
+  }
+
+  if (col_nchar(str) > private$width) {
+    str <- paste0(col_substr(str, 1, private$width - 3), "...")
   }
 
   if (private$last_draw != str) {
-    if (nchar(private$last_draw) > nchar(str)) {
-      clear_line(private$stream, private$width)
+    if (col_nchar(private$last_draw) > col_nchar(str)) {
+      clear_line(private$width)
     }
-    cursor_to_start(private$stream)
-    cat(str, file = private$stream)
+    cursor_to_start()
+    message(str, appendLF = FALSE)
     private$last_draw <- str
   }
 
@@ -382,17 +443,44 @@ pb_render <- function(self, private, tokens) {
 
 pb_update <- function(self, private, ratio, tokens) {
   assert_ratio(ratio)
+  stopifnot(!self$finished)
+
   goal <- floor(ratio * private$total)
   self$tick(goal - private$current, tokens)
 }
 
+pb_message <- function(self, private, msg, set_width) {
+  assert_character(msg)
+  stopifnot(!self$finished)
+
+  if (set_width) {
+    too_long <- col_nchar(msg) > private$width
+    if (any(too_long)) {
+      msg[too_long] <-
+        paste0(col_substr(msg[too_long], 1, private$width - 3), "...")
+    }
+  }
+
+  if (!private$supported) {
+    message(paste0(msg, "\n"), appendLF = FALSE)
+  } else {
+    clear_line(private$width)
+    cursor_to_start()
+    message(paste0(msg, "\n"), appendLF = FALSE)
+    if (!self$finished) {
+      message(private$last_draw, appendLF = FALSE)
+    }
+  }
+}
+
 pb_terminate <- function(self, private) {
+  self$finished <- TRUE
   if (!private$supported || !private$toupdate) return(invisible())
   if (private$clear) {
-    clear_line(private$stream, private$width)
-    cursor_to_start(private$stream)
+    clear_line(private$width)
+    cursor_to_start()
   } else {
-    cat("\n", file = private$stream)
+    message("\n", appendLF = FALSE)
   }
 }
 
