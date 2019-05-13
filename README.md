@@ -2,7 +2,7 @@
 <h1 align="center">
     <br>
     <br>
-    <img width="400" src="./inst/logo.png" alt="progress">
+    <img width="400" src="man/figures/logo.png" alt="progress">
     <br>
     <br>
     <br>
@@ -19,8 +19,10 @@ the https://github.com/tj/node-progress JavaScript project.
 
 ## Installation
 
+Install the package from CRAN:
+
 ```r
-devtools::install_github("r-lib/progress")
+install.packages("progress")
 ```
 
 ## Usage
@@ -103,6 +105,26 @@ for (i in 1:1000) {
 
 ```
   downloading [=====================--------------] 00:00:08
+```
+
+With number of number of ticks/total:
+
+```r
+total <- 1000
+pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = total)
+f <- function() {
+  pb$tick(0)
+  Sys.sleep(3)
+  for (i in 1:total) {
+    pb$tick(1)
+    Sys.sleep(1 / 100)
+  }
+}
+f()
+```
+
+```
+[============================-------------------------------------------------] 370/1000 ( 37%)
 ```
 
 With custom tokens:

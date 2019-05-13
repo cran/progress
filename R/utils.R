@@ -1,13 +1,4 @@
 
-clear_line <- function(width) {
-  str <- paste0(c("\r", rep(" ", width)), collapse = "")
-  message(str, appendLF = FALSE)
-}
-
-cursor_to_start <- function() {
-  message("\r", appendLF = FALSE)
-}
-
 is_stdout <- function(stream) {
   identical(stream, stdout()) && sink.number() == 0
 }
@@ -48,9 +39,19 @@ r_app_stdx <- function(stream) {
     (is_stdout(stream) || is_stderr(stream))
 }
 
+is_rkward <- function() {
+    "rkward" %in% (.packages())
+}
+
+rkward_stdx <- function(stream) {
+  interactive() &&
+    is_rkward() &&
+    (is_stdout(stream) || is_stderr(stream))
+}
+
 is_supported <- function(stream) {
   is_option_enabled() &&
-    (isatty(stream) || r_studio_stdx(stream) || r_app_stdx(stream))
+    (isatty(stream) || r_studio_stdx(stream) || r_app_stdx(stream) || rkward_stdx(stream))
 }
 
 is_option_enabled <- function() {
