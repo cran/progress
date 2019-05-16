@@ -1,10 +1,11 @@
-1f98a42366080da9dfc9163ca72751e8 *DESCRIPTION
+95de8e6a629140b89addd188dae1917b *DESCRIPTION
 e8263dfe6dc4ae08dcf8bb32827fa2ab *LICENSE
 451fe80009d43151fe0886ae44115397 *NAMESPACE
+ccc34262fd82bde7dd7984867ea07380 *NEWS.md
 330e47bed5a169f25782b1e0c542417a *R/progress.R
 1b02db14e760d0e9c2bc30f8867495fe *R/utils.R
 92019cf9741443652ebe32543691197a *README.md
-107da434dcd254f42ff8685a9759ec2e *inst/include/RProgress.h
+dad205569b44efc743be34fed2f71f8e *inst/include/RProgress.h
 76f1f04c00cae388f24f4ff00636c2ae *man/figures/logo.png
 4a607a53806f2e5afe5a834bcace11eb *man/figures/logo.svg
 584a60c9d8806109dfd7d52dfc7f875a *man/progress_bar.Rd
