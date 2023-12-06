@@ -8,9 +8,11 @@
     <br>
 </h1>
 
-[![Linux Build Status](https://travis-ci.org/r-lib/progress.svg?branch=master)](https://travis-ci.org/r-lib/progress)
-[![Windows Build status](https://ci.appveyor.com/api/projects/status/github/r-lib/progress?svg=true)](https://ci.appveyor.com/project/gaborcsardi/progress)
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/r-lib/progress/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/r-lib/progress/actions/workflows/R-CMD-check.yaml)
 [![](https://www.r-pkg.org/badges/version/progress)](https://r-pkg.org/pkg/progress)
+[![Codecov test coverage](https://codecov.io/gh/r-lib/progress/branch/main/graph/badge.svg)](https://app.codecov.io/gh/r-lib/progress?branch=main)
+<!-- badges: end -->
 
 > Progress bar in your R terminal
 
@@ -23,6 +25,12 @@ Install the package from CRAN:
 
 ```r
 install.packages("progress")
+```
+
+If you need the development version, install it from GitHub:
+
+```r
+pak::pak("r-lib/progress")
 ```
 
 ## Usage
@@ -187,6 +195,40 @@ f()
 
 See the manual for details and other options.
 
+## Usage with `purrr` iterators
+
+If you prefer to do your iterative tasks using the `purrr` family of functional programming tools, rather than with `for` loops, there are two straightforward ways to add progress bars:
+
+1. Increment the ticks *in-line* when calling the `purrr` iterator.
+
+2. Define the task and increment the ticks in a separate wrapper function.
+
+***Option 1*** is concise for simple one-line tasks (*e.g.* requiring only a single function call), while ***Option 2*** is probably preferred for more complex multi-line tasks.
+
+```r
+# Option 1
+pb <- progress_bar$new(total = 100)
+purrr::walk(1:100, ~{pb$tick(); Sys.sleep(0.1)})
+```
+```
+[================================================>------]  89%
+```
+
+```r
+# Option 2
+pb <- progress_bar$new(total = 100)
+
+foo <- function(x){
+  pb$tick()
+  Sys.sleep(0.1)
+}
+
+purrr::walk(1:100, foo)
+```
+```
+[==================>------------------------------------]  34%
+```
+
 ## Creating a plyr compatible progress bar
 
 It is easy to create progress bars for
@@ -220,8 +262,8 @@ plyr::l_ply(
 ## C++ API
 
 The package also provides a C++ API, that can be used with or
-without Rcpp. See [the example package](inst/progresstest/src/test.cpp) that
-is [included](inst/progresstest) within `progress`. Here is a short excerpt
+without Rcpp. See [the example package](tests/testthat/progresstest/src/test.cpp) that
+is [included](tests/testthat/progresstest) within `progress`. Here is a short excerpt
 that shows how it works:
 
 ```CPP
